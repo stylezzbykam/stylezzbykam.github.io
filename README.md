@@ -22,7 +22,7 @@ Any change pushed to `main` goes live in about a minute. Ask Claude to make the 
 - [ ] Remove the `<meta name="robots" content="noindex, nofollow">` line (and the DRAFT comment after it) from `index.html`. Keep the one in `pick/index.html`.
 - [ ] Fill in missing prices (boho braids, cornrows, male braids) and confirm takedown wording.
 - [ ] Confirm business name spelling ("Stylezz by Kam").
-- [ ] Apply Kamala's picks (snapshot text from the picker) to the Featured grid.
+- [x] Applied Kamala's picks (STYLEZZ PICKS v1, 12 photos) to the Featured grid and tags.
 - [ ] Buy the domain, then add a `CNAME` file and set the custom domain under Settings > Pages. Turn on Enforce HTTPS.
 - [ ] Make the `og:image` URL absolute (full https address) so link previews work.
 - [ ] Update the website link on the Google Business Profile.
