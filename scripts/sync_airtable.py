@@ -436,6 +436,10 @@ def main():
     settings = build_settings(set_rec)
     photos = build_photos(photo_rec, download=not args.no_download)
 
+    print("Manual sort codes seen: %d/%d services, %d/%d photos (rows without a code use the fallback order)"
+          % (sum(1 for r in svc_rec if manual_value(r)), len(svc_rec),
+             sum(1 for r in photo_rec if manual_value(r)), len(photo_rec)))
+
     n_services = sum(len(g["items"]) for g in services)
     problems = []
     if n_services < MIN_SERVICES:
