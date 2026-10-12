@@ -179,13 +179,28 @@ def download_photo(url, dest):
     img.save(dest, "JPEG", quality=82, optimize=True, progressive=True)
 
 
+def is_number(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def photo_order(records):
+    """New photos (no Order number) come first, newest first. After them come the
+    photos that have an Order number, lowest first. So a new upload shows at the top
+    with no numbering, and an Order number is only for pinning a photo in place."""
+    blank = [r for r in records if not is_number(r.get("fields", {}).get("Order"))]
+    blank.sort(key=lambda r: r.get("createdTime", ""), reverse=True)
+    numbered = [r for r in records if is_number(r.get("fields", {}).get("Order"))]
+    numbered.sort(key=lambda r: (r["fields"]["Order"], r.get("createdTime", "")))
+    return blank + numbered
+
+
 def build_photos(records, download=True):
     photos = []
-    for rec in sorted(records, key=sort_key):
+    for rec in photo_order(records):
         f = rec.get("fields", {})
         if not f.get("Show on site"):
             continue
-        label = text(f.get("Label")) or rec.get("id")
+        label = text(f.get("Name")) or text(f.get("Label")) or rec.get("id")
         path = photo_path_for(f)
         if not path:
             warn("Skipped photo %r: no picture attached" % label)
