@@ -15,7 +15,6 @@ concurrency:
 
 permissions:
   contents: write
-  pages: write
 
 jobs:
   sync:
@@ -57,12 +56,3 @@ jobs:
           git commit -m "Sync from Airtable"
           git push
           echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      # Commits made with the built-in token may not start a Pages build on their own.
-      # Asking for one is harmless if it already started.
-      - name: Request a Pages build
-        if: steps.commit.outputs.changed == 'true'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
