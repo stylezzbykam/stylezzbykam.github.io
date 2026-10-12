@@ -20,7 +20,8 @@ Any change pushed to `main` goes live in about a minute. Ask Claude to make the 
 ## Launch checklist
 
 - [ ] Remove the `<meta name="robots" content="noindex, nofollow">` line (and the DRAFT comment after it) from `index.html`. Keep the one in `pick/index.html`.
-- [ ] Fill in missing prices (boho braids, cornrows, male braids) and confirm takedown wording.
+- [x] Prices added for boho braids, cornrows (with extensions) and male braids.
+- [ ] Confirm price for cornrows on natural hair, and takedown wording.
 - [ ] Confirm business name spelling ("Stylezz by Kam").
 - [x] Applied Kamala's picks (STYLEZZ PICKS v1, 12 photos) to the Featured grid and tags.
 - [ ] Buy the domain, then add a `CNAME` file and set the custom domain under Settings > Pages. Turn on Enforce HTTPS.
