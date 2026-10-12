@@ -158,8 +158,14 @@ def photo_path_for(f):
             raise SyncError("Unexpected value in Existing file: %r" % existing)
         return existing
     atts = f.get("Photo") or []
-    if atts and re.fullmatch(r"att[A-Za-z0-9]+", atts[0].get("id", "")):
-        return "assets/photos/up-%s.jpg" % atts[0]["id"]
+    if atts:
+        # The first 20 photos were uploaded under their repo file names (photo-NN.jpg),
+        # so a matching file that is already in the repo is reused: no Existing file needed.
+        name = atts[0].get("filename", "")
+        if re.fullmatch(r"photo-\d\d\.jpg", name) and (PHOTO_DIR / name).exists():
+            return "assets/photos/" + name
+        if re.fullmatch(r"att[A-Za-z0-9]+", atts[0].get("id", "")):
+            return "assets/photos/up-%s.jpg" % atts[0]["id"]
     return None
 
 
