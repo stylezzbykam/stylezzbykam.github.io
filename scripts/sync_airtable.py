@@ -124,25 +124,22 @@ def manual_value(rec):
     return v if isinstance(v, str) and v else None
 
 
-def order_records(records, new_first):
+def order_records(records):
     """Order rows by Airtable's Manual sort field (plain alphabetical comparison of its
-    codes). Rows with no code yet go first (newest first) when new_first, else last.
-    If nobody has set up manual sort, or the API does not return it, fall back to the
-    Order number rules."""
+    codes). Rows with no code yet (new uploads) go last, oldest first, so a new row always
+    lands at the bottom until someone drags it somewhere. If nobody has set up manual sort,
+    or the API does not return it, fall back to the Order number rules."""
     placed = [r for r in records if manual_value(r)]
     if not placed:
-        return photo_order(records) if new_first else sorted(records, key=sort_key)
+        return sorted(records, key=sort_key)
     placed.sort(key=lambda r: (manual_value(r), r.get("createdTime", "")))
-    rest = [r for r in records if not manual_value(r)]
-    if new_first:
-        rest.sort(key=lambda r: r.get("createdTime", ""), reverse=True)
-        return rest + placed
-    return placed + sorted(rest, key=sort_key)
+    rest = sorted([r for r in records if not manual_value(r)], key=sort_key)
+    return placed + rest
 
 
 def build_services(records, group_order):
     by_group = {}
-    for rec in order_records(records, new_first=False):
+    for rec in order_records(records):
         f = rec.get("fields", {})
         if not f.get("Show on site"):
             continue
@@ -207,24 +204,9 @@ def download_photo(url, dest):
     img.save(dest, "JPEG", quality=82, optimize=True, progressive=True)
 
 
-def is_number(v):
-    return isinstance(v, (int, float)) and not isinstance(v, bool)
-
-
-def photo_order(records):
-    """New photos (no Order number) come first, newest first. After them come the
-    photos that have an Order number, lowest first. So a new upload shows at the top
-    with no numbering, and an Order number is only for pinning a photo in place."""
-    blank = [r for r in records if not is_number(r.get("fields", {}).get("Order"))]
-    blank.sort(key=lambda r: r.get("createdTime", ""), reverse=True)
-    numbered = [r for r in records if is_number(r.get("fields", {}).get("Order"))]
-    numbered.sort(key=lambda r: (r["fields"]["Order"], r.get("createdTime", "")))
-    return blank + numbered
-
-
 def build_photos(records, download=True):
     photos = []
-    for rec in order_records(records, new_first=True):
+    for rec in order_records(records):
         f = rec.get("fields", {})
         if not f.get("Show on site"):
             continue
