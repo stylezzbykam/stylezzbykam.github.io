@@ -32,14 +32,6 @@ MAX_DOWNLOAD_BYTES = 40 * 1024 * 1024
 PENDING_LABEL = "Message for price"
 MANUAL_SORT_FIELD = "Manual sort"  # Airtable's drag-to-reorder field (text codes like a0, a1, aBG)
 
-# A sync that would leave the site with less than this is treated as broken.
-MIN_SERVICES = 5
-MIN_PHOTOS = 6
-# ...and so is one that loses more than 40% of what the site shows now (services, priced
-# services or photos). Set SYNC_FORCE=true (the "force" box when running by hand) to accept
-# a drop you really meant.
-MIN_KEEP = 0.6
-
 TEXT_TYPES = {"singleLineText", "multilineText", "richText", "formula"}
 # Columns the script reads. If one is renamed, deleted or changed to another type, the
 # script stops instead of publishing blanks.
@@ -361,7 +353,7 @@ def hours_html(hours):
         if h["open"] and h["close"]:
             value = "%s to %s" % (h["open"], h["close"])
         else:
-            value = "Closed"
+            value = h["open"] or h["close"] or "Closed"   # e.g. "By appointment" typed in Opens
         lines.append('      <div class="row"><dt>%s</dt><dd>%s</dd></div>' % (esc(h["days"]), esc(value)))
     return "\n".join(lines)
 
@@ -461,33 +453,6 @@ def rewrite_index(src, services, hours, photos, settings):
 
 # ---------- main ----------
 
-def site_stats(src):
-    """What the page currently shows: services, services with a price, photos, open days."""
-    m = re.search(r'  "services": \[\n(.*?)\n  \],(?=\n  "pricePendingLabel")', src, re.S)
-    block = m.group(1) if m else ""
-    services = len(re.findall(r'\{"name": ', block))
-    priced = services - len(re.findall(r'"price": null', block))
-    m = re.search(r'  "photos": \[\n(.*?)\n  \](?=\n\};)', src, re.S)
-    photos = len(re.findall(r'"src":', m.group(1))) if m else 0
-    return {"services": services, "services with a price": priced, "photos": photos}
-
-
-def compare_with_site(old, new, force):
-    problems = []
-    for key, was in old.items():
-        now = new[key]
-        if was >= 5 and now < was * MIN_KEEP:
-            problems.append("%s would drop from %d to %d" % (key, was, now))
-    if problems and force:
-        for p_ in problems:
-            warn("Accepted because force was on: " + p_)
-        return
-    if problems:
-        raise SyncError("Refusing to update the site (looks like a mistake in Airtable): "
-                        + "; ".join(problems)
-                        + ". If you really meant this, run the workflow by hand with 'force' ticked.")
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixture", help="read tables from this JSON file instead of Airtable")
@@ -505,21 +470,15 @@ def main():
              sum(1 for r in photo_rec if manual_value(r)), len(photo_rec)))
 
     n_services = sum(len(g["items"]) for g in services)
-    problems = []
-    if n_services < MIN_SERVICES:
-        problems.append("only %d services are switched on (need at least %d)" % (n_services, MIN_SERVICES))
-    if len(photos) < MIN_PHOTOS:
-        problems.append("only %d photos are switched on (need at least %d)" % (len(photos), MIN_PHOTOS))
-    if not any(h["open"] and h["close"] for h in hours):
-        problems.append("no day has both opening and closing times")
-    if problems:
-        raise SyncError("Refusing to update the site: " + "; ".join(problems))
+    # The only content check: never publish a section with nothing in it. That almost
+    # always means Airtable returned nothing or every row was switched off by mistake.
+    # There are no minimum counts and no limits on what prices or photos may change.
+    empty = [name for name, n in (("services", n_services), ("photos", len(photos)), ("opening hours", len(hours))) if n == 0]
+    if empty:
+        raise SyncError("Refusing to update the site: it would show no " + " and no ".join(empty)
+                        + ". Check the rows in Airtable (and that they are ticked 'Show on site' where there is such a column).")
 
     old = INDEX.read_text(encoding="utf-8")
-    new_stats = {"services": n_services,
-                 "services with a price": sum(1 for g in services for it in g["items"] if it["price"]),
-                 "photos": len(photos)}
-    compare_with_site(site_stats(old), new_stats, os.environ.get("SYNC_FORCE", "").lower() == "true")
     new = rewrite_index(old, services, hours, photos, settings)
     if new != old:
         INDEX.write_text(new, encoding="utf-8")
