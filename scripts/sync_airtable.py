@@ -379,7 +379,23 @@ def set_json_string(src, key, value):
     return replace_once(src, pat, lambda m: m.group(1) + jdump(value), 'SITE key "%s"' % key)
 
 
+def set_hero(src, photo):
+    """The first photo in the owner's order is also the big photo at the top of the page
+    and the picture used when the link is shared (og:image)."""
+    path = photo["src"]
+    alt = "%s by Stylezz by Kam" % (photo["tag"] or "Hairstyle")
+    src = replace_once(
+        src, r'(<img class="hero-img" src=")[^"]*(" width="900" height="1200" alt=")[^"]*(" fetchpriority="high">)',
+        lambda m: m.group(1) + html.escape(path, quote=True) + m.group(2) + html.escape(alt, quote=True) + m.group(3),
+        "hero image")
+    # Keep whatever site address is already there (it changes when the domain is bought).
+    return replace_once(
+        src, r'(<meta property="og:image" content="https?://[^"]*?/)assets/photos/[^"]*(">)',
+        lambda m: m.group(1) + html.escape(path, quote=True) + m.group(2), "og:image tag")
+
+
 def rewrite_index(src, services, hours, photos, settings):
+    src = set_hero(src, photos[0])
     src = marked(src, "menu", menu_html(services))
     src = marked(src, "hours", hours_html(hours))
 
