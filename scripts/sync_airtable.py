@@ -30,6 +30,7 @@ DEFAULT_BASE = "app0ZUh1e5odx1fXG"
 PHOTO_MAX = (900, 1200)
 MAX_DOWNLOAD_BYTES = 40 * 1024 * 1024
 PENDING_LABEL = "Message for price"
+MANUAL_SORT_FIELD = "Manual sort"  # Airtable's drag-to-reorder field (text codes like a0, a1, aBG)
 
 # A sync that would leave the site with less than this is treated as broken.
 MIN_SERVICES = 5
@@ -118,9 +119,30 @@ def sort_key(rec, order_field="Order"):
             rec.get("createdTime", ""))
 
 
+def manual_value(rec):
+    v = rec.get("fields", {}).get(MANUAL_SORT_FIELD)
+    return v if isinstance(v, str) and v else None
+
+
+def order_records(records, new_first):
+    """Order rows by Airtable's Manual sort field (plain alphabetical comparison of its
+    codes). Rows with no code yet go first (newest first) when new_first, else last.
+    If nobody has set up manual sort, or the API does not return it, fall back to the
+    Order number rules."""
+    placed = [r for r in records if manual_value(r)]
+    if not placed:
+        return photo_order(records) if new_first else sorted(records, key=sort_key)
+    placed.sort(key=lambda r: (manual_value(r), r.get("createdTime", "")))
+    rest = [r for r in records if not manual_value(r)]
+    if new_first:
+        rest.sort(key=lambda r: r.get("createdTime", ""), reverse=True)
+        return rest + placed
+    return placed + sorted(rest, key=sort_key)
+
+
 def build_services(records, group_order):
     by_group = {}
-    for rec in sorted(records, key=sort_key):
+    for rec in order_records(records, new_first=False):
         f = rec.get("fields", {})
         if not f.get("Show on site"):
             continue
@@ -202,7 +224,7 @@ def photo_order(records):
 
 def build_photos(records, download=True):
     photos = []
-    for rec in photo_order(records):
+    for rec in order_records(records, new_first=True):
         f = rec.get("fields", {})
         if not f.get("Show on site"):
             continue
