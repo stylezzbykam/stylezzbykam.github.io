@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "7,37 * * * *"   # every 30 minutes
   workflow_dispatch:          # the "Run workflow" button on the Actions tab
+    inputs:
+      force:
+        description: "Accept a big drop in services, prices or photos (only if you removed them on purpose)"
+        type: boolean
+        default: false
 
 concurrency:
   group: airtable-sync
@@ -15,6 +20,7 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write   # to raise (and later close) an alert when the sync stops
 
 jobs:
   sync:
@@ -33,6 +39,7 @@ jobs:
       - name: Pull from Airtable
         env:
           AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          SYNC_FORCE: ${{ inputs.force }}
         run: python3 scripts/sync_airtable.py
 
       - name: Commit changes
@@ -56,3 +63,31 @@ jobs:
           git commit -m "Sync from Airtable"
           git push
           echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # If the script stopped (Airtable changed or looks broken), the site keeps its last
+      # good version. Raise one issue so someone hears about it; close it when a run works.
+      - name: Raise an alert if the sync stopped
+        if: failure()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          existing=$(gh issue list --state open --search '"Airtable sync stopped" in:title' --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            echo "Alert #$existing is already open."
+          else
+            gh issue create --title "Airtable sync stopped" \
+              --body "The website was NOT updated and keeps showing its last good version. What went wrong is at the top of this run: $RUN_URL"
+          fi
+
+      - name: Close the alert once the sync works again
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing=$(gh issue list --state open --search '"Airtable sync stopped" in:title' --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue close "$existing" --comment "The sync is working again."
+          fi

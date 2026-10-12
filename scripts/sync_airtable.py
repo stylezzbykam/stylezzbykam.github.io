@@ -35,7 +35,22 @@ MANUAL_SORT_FIELD = "Manual sort"  # Airtable's drag-to-reorder field (text code
 # A sync that would leave the site with less than this is treated as broken.
 MIN_SERVICES = 5
 MIN_PHOTOS = 6
-MIN_HOURS = 1
+# ...and so is one that loses more than 40% of what the site shows now (services, priced
+# services or photos). Set SYNC_FORCE=true (the "force" box when running by hand) to accept
+# a drop you really meant.
+MIN_KEEP = 0.6
+
+TEXT_TYPES = {"singleLineText", "multilineText", "richText", "formula"}
+# Columns the script reads. If one is renamed, deleted or changed to another type, the
+# script stops instead of publishing blanks.
+REQUIRED_FIELDS = {
+    "Services": {"Service": TEXT_TYPES, "Group": {"singleSelect"}, "Price": TEXT_TYPES,
+                 "Show on site": {"checkbox"}},
+    "Photos": {"Photo": {"multipleAttachments"}, "Show on site": {"checkbox"},
+               "Style tag": TEXT_TYPES | {"singleSelect"}},
+    "Hours": {"Days": TEXT_TYPES, "Opens": TEXT_TYPES, "Closes": TEXT_TYPES},
+    "Settings": {"Setting": TEXT_TYPES, "Value": TEXT_TYPES},
+}
 
 DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
@@ -78,30 +93,54 @@ def fetch_table(base, table, token):
             return records
 
 
-def fetch_group_order(base, token):
+def fetch_schema(base, token):
+    """{table name: {field name: field type}} and the Group choices in their set order."""
     data = api_get("/v0/meta/bases/%s/tables" % base, token)
+    tables, groups = {}, []
     for t in data.get("tables", []):
+        tables[t.get("name")] = {f.get("name"): f.get("type") for f in t.get("fields", [])}
         if t.get("name") == "Services":
             for f in t.get("fields", []):
                 if f.get("name") == "Group":
-                    return [c["name"] for c in f.get("options", {}).get("choices", [])]
-    raise SyncError("Could not read the Group choices of the Services table")
+                    groups = [c["name"] for c in f.get("options", {}).get("choices", [])]
+    return tables, groups
+
+
+def validate_schema(tables):
+    problems = []
+    for table, fields in REQUIRED_FIELDS.items():
+        if table not in tables:
+            problems.append('table "%s" is missing' % table)
+            continue
+        for name, ok_types in fields.items():
+            got = tables[table].get(name)
+            if got is None:
+                problems.append('"%s" has no column "%s"' % (table, name))
+            elif got not in ok_types:
+                problems.append('"%s" column "%s" is now a %s column (expected %s)'
+                                % (table, name, got, " or ".join(sorted(ok_types))))
+    if problems:
+        raise SyncError("Airtable has changed, so nothing was published: " + "; ".join(problems))
 
 
 def load_data(args):
     if args.fixture:
         d = json.loads(Path(args.fixture).read_text(encoding="utf-8"))
+        if d.get("schema"):
+            validate_schema(d["schema"])
         return d["Services"], d["Photos"], d["Hours"], d["Settings"], d["groups"]
     token = os.environ.get("AIRTABLE_TOKEN", "").strip()
     if not token:
         raise SyncError("AIRTABLE_TOKEN is not set")
     base = os.environ.get("AIRTABLE_BASE_ID", DEFAULT_BASE).strip()
+    tables, groups = fetch_schema(base, token)
+    validate_schema(tables)
     return (
         fetch_table(base, "Services", token),
         fetch_table(base, "Photos", token),
         fetch_table(base, "Hours", token),
         fetch_table(base, "Settings", token),
-        fetch_group_order(base, token),
+        groups,
     )
 
 
@@ -422,6 +461,33 @@ def rewrite_index(src, services, hours, photos, settings):
 
 # ---------- main ----------
 
+def site_stats(src):
+    """What the page currently shows: services, services with a price, photos, open days."""
+    m = re.search(r'  "services": \[\n(.*?)\n  \],(?=\n  "pricePendingLabel")', src, re.S)
+    block = m.group(1) if m else ""
+    services = len(re.findall(r'\{"name": ', block))
+    priced = services - len(re.findall(r'"price": null', block))
+    m = re.search(r'  "photos": \[\n(.*?)\n  \](?=\n\};)', src, re.S)
+    photos = len(re.findall(r'"src":', m.group(1))) if m else 0
+    return {"services": services, "services with a price": priced, "photos": photos}
+
+
+def compare_with_site(old, new, force):
+    problems = []
+    for key, was in old.items():
+        now = new[key]
+        if was >= 5 and now < was * MIN_KEEP:
+            problems.append("%s would drop from %d to %d" % (key, was, now))
+    if problems and force:
+        for p_ in problems:
+            warn("Accepted because force was on: " + p_)
+        return
+    if problems:
+        raise SyncError("Refusing to update the site (looks like a mistake in Airtable): "
+                        + "; ".join(problems)
+                        + ". If you really meant this, run the workflow by hand with 'force' ticked.")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixture", help="read tables from this JSON file instead of Airtable")
@@ -444,12 +510,16 @@ def main():
         problems.append("only %d services are switched on (need at least %d)" % (n_services, MIN_SERVICES))
     if len(photos) < MIN_PHOTOS:
         problems.append("only %d photos are switched on (need at least %d)" % (len(photos), MIN_PHOTOS))
-    if len(hours) < MIN_HOURS:
-        problems.append("no opening hours found")
+    if not any(h["open"] and h["close"] for h in hours):
+        problems.append("no day has both opening and closing times")
     if problems:
         raise SyncError("Refusing to update the site: " + "; ".join(problems))
 
     old = INDEX.read_text(encoding="utf-8")
+    new_stats = {"services": n_services,
+                 "services with a price": sum(1 for g in services for it in g["items"] if it["price"]),
+                 "photos": len(photos)}
+    compare_with_site(site_stats(old), new_stats, os.environ.get("SYNC_FORCE", "").lower() == "true")
     new = rewrite_index(old, services, hours, photos, settings)
     if new != old:
         INDEX.write_text(new, encoding="utf-8")
@@ -468,4 +538,8 @@ if __name__ == "__main__":
         main()
     except SyncError as e:
         print("ERROR:", e)
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a", encoding="utf-8") as fh:
+                fh.write("### The site was NOT updated\n%s\n\nThe website keeps showing its last good version.\n" % e)
         sys.exit(1)
