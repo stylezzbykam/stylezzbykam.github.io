@@ -1,0 +1,68 @@
+name: Sync from Airtable
+
+# Pulls prices, hours, text and photos from the Airtable base and rewrites the
+# generated parts of index.html. Commits only when something changed.
+# Needs the repo secret AIRTABLE_TOKEN (read-only token for the Stylezz base).
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"   # every 30 minutes
+  workflow_dispatch:          # the "Run workflow" button on the Actions tab
+
+concurrency:
+  group: airtable-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Pillow
+        run: pip install pillow
+
+      - name: Pull from Airtable
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+        run: python3 scripts/sync_airtable.py
+
+      - name: Commit changes
+        id: commit
+        run: |
+          # GitHub switches off scheduled runs on a public repo after 60 days without
+          # activity. Touch a small file once a month so a quiet period never does that.
+          mkdir -p .github
+          now=$(date -u +%s)
+          last=$(date -u -d "$(cat .github/keepalive.txt 2>/dev/null || echo 2000-01-01)" +%s)
+          if [ $(( (now - last) / 86400 )) -ge 30 ]; then date -u +%F > .github/keepalive.txt; fi
+
+          git add index.html assets/photos .github/keepalive.txt
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync from Airtable"
+          git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      # Commits made with the built-in token may not start a Pages build on their own.
+      # Asking for one is harmless if it already started.
+      - name: Request a Pages build
+        if: steps.commit.outputs.changed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"
