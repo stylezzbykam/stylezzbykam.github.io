@@ -30,6 +30,7 @@ Anything else: any change pushed to `main` goes live in about a minute. Ask Clau
 - [x] Domain bought (stylezzbykam.com), DNS set, custom domain saved under Settings > Pages (this created the `CNAME` file).
 - [ ] Tick Enforce HTTPS under Settings > Pages. The certificate exists, but plain http still serves and the old github.io address redirects to http (checked 2026-10-13).
 - [x] `og:image` is an absolute https address on stylezzbykam.com.
+- [x] Canonical tag added to `index.html` (`https://stylezzbykam.com/`), 2026-10-13.
 - [x] Google Business Profile created (2026-10-13).
 - [ ] Confirm the profile's website link is https://stylezzbykam.com/ (not the github.io address).
 - [ ] Optional: add the site in Google Search Console and request indexing of the home page.
