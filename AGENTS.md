@@ -47,7 +47,8 @@ Keep photos at 900x1200 JPG, named `photo-NN.jpg`, and add a smaller thumb for t
 ## Status and launch checklist
 - Site is launched and indexable: the `noindex` meta tag was removed from `index.html` on 2026-10-13. `pick/index.html` keeps its `noindex` on purpose (photo picker, not a public page).
 - Domain stylezzbykam.com is bought at Porkbun and live (2026-10-13). To do: tick Enforce HTTPS under Settings > Pages (re-checked 2026-10-13: http still serves and github.io redirects to http).
-- Google Business Profile created (per Dre, 2026-10-13). To confirm: its website link is https://stylezzbykam.com/. Search Console not set up (optional).
+- Google Business Profile created, its website link set to https://stylezzbykam.com/, and Google Search Console set up (all per Dre, 2026-10-13). Kamala has Airtable access (per Dre, 2026-10-13).
+- Still open: retry Enforce HTTPS under Settings > Pages a few hours after 2026-10-13 (GitHub said the certificate was not yet issued, although Let's Encrypt had already issued one and DNS is correct; if it stays unavailable, remove the custom domain, save, and add it again). Then check that http redirects to https and update this section.
 - The `og:image` tag, the JSON-LD `image` and the `<link rel="canonical">` tag hardcode the site address (now stylezzbykam.com). The sync script keeps whatever address is already in `og:image` and never touches the canonical tag; if the domain changes, edit all three by hand once.
 - Owner control panel: Airtable base plus the scheduled sync described above (replaced the earlier Google Sheet plan). The base currently lives in the developer's personal Airtable workspace; transfer = make the owner a workspace Owner, then create a new read-only token under the new owner and replace the `AIRTABLE_TOKEN` secret.
 
