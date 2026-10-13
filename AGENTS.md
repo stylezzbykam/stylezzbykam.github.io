@@ -1,6 +1,6 @@
 # Agent guide: Stylezz by Kam site
 
-One-page static site for a braid and natural hair salon in Edmonton, AB. Hosted on GitHub Pages from the `main` branch of this repo (org `stylezzbykam`, repo `stylezzbykam.github.io`, public). No build step. Do not put personal details, keys or tokens in this repo. It is public.
+One-page static site for a braid and natural hair salon in Edmonton, AB. Hosted on GitHub Pages from the `main` branch of this repo (org `stylezzbykam`, repo `stylezzbykam.github.io`, public). Live at https://stylezzbykam.com/ (custom domain; the `CNAME` file at the repo root must stay, and the old github.io address redirects to it). No build step. Do not put personal details, keys or tokens in this repo. It is public.
 
 ## Layout
 - `index.html` - the whole site. Business facts live in two places that must be kept in sync: the visible HTML text (for SEO) and the `SITE` JSON near the bottom (drives the gallery and structured data).
@@ -46,7 +46,8 @@ Keep photos at 900x1200 JPG, named `photo-NN.jpg`, and add a smaller thumb for t
 
 ## Status and launch checklist
 - Site is a draft: `index.html` has `<meta name="robots" content="noindex, nofollow">`. Remove it at launch.
-- Domain not bought yet. Google Business Profile not set up yet.
+- Domain stylezzbykam.com is registered at Porkbun and live (2026-10-13). To check: Enforce HTTPS under Settings > Pages is still to be ticked (http serves, github.io redirects to http). Google Business Profile not set up yet.
+- The `og:image` tag and the JSON-LD `image` hardcode the site address (now stylezzbykam.com). The sync script keeps whatever address is already in `og:image`; if the domain changes, edit both by hand once.
 - Owner control panel: Airtable base plus the scheduled sync described above (replaced the earlier Google Sheet plan). The base currently lives in the developer's personal Airtable workspace; transfer = make the owner a workspace Owner, then create a new read-only token under the new owner and replace the `AIRTABLE_TOKEN` secret.
 
 ## Rules

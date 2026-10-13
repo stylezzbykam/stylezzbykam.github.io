@@ -2,8 +2,8 @@
 
 One-page site for Stylezz by Kam (Edmonton, AB). Hosted free on GitHub Pages.
 
-- Site: https://stylezzbykam.github.io
-- Photo picker: https://stylezzbykam.github.io/pick/
+- Site: https://stylezzbykam.com/
+- Photo picker: https://stylezzbykam.com/pick/
 
 ## Files
 
@@ -27,6 +27,7 @@ Anything else: any change pushed to `main` goes live in about a minute. Ask Clau
 - [x] Cornrows (natural hair) $80, takedown $80 (+$20 small braids), wash and blow dry $40 confirmed.
 - [ ] Confirm business name spelling ("Stylezz by Kam").
 - [x] Applied Kamala's picks (STYLEZZ PICKS v1, 12 photos) to the Featured grid and tags.
-- [ ] Buy the domain, then add a `CNAME` file and set the custom domain under Settings > Pages. Turn on Enforce HTTPS.
-- [ ] Make the `og:image` URL absolute (full https address) so link previews work.
+- [x] Domain bought (stylezzbykam.com), DNS set, custom domain saved under Settings > Pages (this created the `CNAME` file).
+- [ ] Tick Enforce HTTPS under Settings > Pages. The certificate exists, but plain http still serves and the old github.io address redirects to http (checked 2026-10-13).
+- [x] `og:image` is an absolute https address on stylezzbykam.com.
 - [ ] Update the website link on the Google Business Profile.
